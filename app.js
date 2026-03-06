@@ -23,11 +23,11 @@ let state = {
 };
 
 // 升級 Cache 版本，強制瀏覽器抓取新代碼
-const CACHE_KEY = 'epic-quest-v6';
+const CACHE_KEY = 'epic-quest-v7';
 
 // 月曆專用全域變數
 let currentCalDate = new Date();
-let pendingCustomDateStr = null; // 儲存 YYYY-MM-DD
+let pendingCustomDateStr = null; 
 
 function loadFromStorage() {
     const saved = localStorage.getItem(CACHE_KEY);
@@ -55,7 +55,7 @@ function gameTick() {
         state.hero.stats.hpHealedToday = 0;
         // Tomorrow 轉 Active
         state.quests.forEach(q => { if (q.type === 'tomorrow') q.type = 'active'; });
-        // 預言與 Boss 任務日期檢查轉移
+        // 預言任務日期檢查轉移
         checkDateTransfers();
         state.lastResetDate = today;
         showToast("A new day dawns...");
@@ -72,7 +72,6 @@ function gameTick() {
 
 function checkDateTransfers() {
     const todayMs = new Date().setHours(0,0,0,0);
-    // 預言任務到期自動轉 Active
     state.quests.forEach(q => {
         if (q.type === 'prophecy' && q.deadline !== 'eternal' && q.deadlineDate) {
             const dlMs = new Date(q.deadlineDate).getTime();
@@ -129,10 +128,18 @@ function toggleActiveQuestEdit() {
     btn.classList.toggle('active');
 }
 
+// 新增：神聖預言書 (Future 頁籤) 編輯開關
+function toggleFutureEdit() {
+    const lists = document.querySelectorAll('.future-list-group');
+    const btn = document.getElementById('toggle-future-edit-btn');
+    lists.forEach(list => list.classList.toggle('edit-mode-on'));
+    if(btn) btn.classList.toggle('active');
+}
+
 // 攔截原生 Date，喚醒史詩月曆
 function checkCustomDate(val) {
     if(val === 'custom') {
-        currentCalDate = new Date(); // 重置為當前月份
+        currentCalDate = new Date(); // 打開時重置為當前月份
         renderCalendar();
         openModal('calendar-modal');
     } else {
@@ -152,23 +159,13 @@ function renderCalendar() {
     const today = new Date();
     
     let html = '';
+    for(let i=0; i<firstDay; i++) html += `<div class="cal-day empty"></div>`;
     
-    // 補齊月曆前面的空白格
-    for(let i=0; i<firstDay; i++) {
-        html += `<div class="cal-day empty"></div>`;
-    }
-    
-    // 渲染日期
     for(let d=1; d<=daysInMonth; d++) {
         const iterDateStr = `${year}-${String(month+1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
         let classes = 'cal-day';
-        
-        if (year === today.getFullYear() && month === today.getMonth() && d === today.getDate()) {
-            classes += ' today';
-        }
-        if (pendingCustomDateStr === iterDateStr) {
-            classes += ' selected';
-        }
+        if (year === today.getFullYear() && month === today.getMonth() && d === today.getDate()) classes += ' today';
+        if (pendingCustomDateStr === iterDateStr) classes += ' selected';
         
         html += `<div class="${classes}" onclick="selectCalDate(${year}, ${month}, ${d})">${d}</div>`;
     }
@@ -181,16 +178,21 @@ function changeMonth(offset) {
 }
 
 function selectCalDate(year, month, day) {
+    // 修復 Null Bug：正確格式化並保存日期
     pendingCustomDateStr = `${year}-${String(month+1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-    renderCalendar(); // 重新渲染以套用 selected 發光特效
+    renderCalendar(); // 重新渲染套用發光特效
     
-    // 稍微延遲讓玩家看到特效，然後關閉 Modal
+    // 動態更新下拉選單文字，讓玩家知道已經封印成功
+    const selectEl = document.getElementById('prophecy-deadline');
+    const customOpt = selectEl.querySelector('option[value="custom"]');
+    if (customOpt) customOpt.text = `✨ Sealed: ${pendingCustomDateStr}`;
+    
+    // 延遲 350ms 讓玩家欣賞特效，並傳入 true 告訴 closeModal 這是「確認送出」不要清空資料
     setTimeout(() => {
-        closeModal('calendar-modal');
-        showToast(`Date Sealed: ${pendingCustomDateStr}`);
+        closeModal('calendar-modal', true); 
+        showToast(`Date Sealed!`);
     }, 350);
 }
-
 
 function addQuest(type) {
     let titleInput, goldInput;
@@ -210,7 +212,7 @@ function addQuest(type) {
         else if (deadline === 'custom') {
             if(!pendingCustomDateStr) { 
                 showToast("⚠️ Please select a date from the calendar!"); 
-                document.getElementById('prophecy-deadline').value = 'eternal'; // 防呆歸位
+                document.getElementById('prophecy-deadline').value = 'eternal';
                 return; 
             }
             deadlineDate = pendingCustomDateStr;
@@ -226,9 +228,12 @@ function addQuest(type) {
     document.getElementById(titleInput).value = '';
     if(goldInput) document.getElementById(goldInput).value = '';
     
-    // 如果是預言任務，新增後自動將下拉選單與暫存日期歸零
+    // 新增預言任務後，乾淨地重置下拉選單
     if(type === 'prophecy') {
-        document.getElementById('prophecy-deadline').value = 'eternal';
+        const selectEl = document.getElementById('prophecy-deadline');
+        selectEl.value = 'eternal';
+        const customOpt = selectEl.querySelector('option[value="custom"]');
+        if (customOpt) customOpt.text = `✨ Unveil Destiny...`;
         pendingCustomDateStr = null;
     }
 
@@ -248,7 +253,6 @@ function renderQuestList(type, containerId, emptyId) {
     
     let itemsToRender = state.quests.filter(q => q.type === type).map(q => ({...q, isBoss: false}));
     
-    // 將 Active Boss Subtasks 混入 Active Quests
     if (type === 'active') {
         state.bosses.forEach(b => {
             b.subtasks.filter(st => st.active).forEach(st => {
@@ -274,7 +278,7 @@ function renderQuestList(type, containerId, emptyId) {
             extraInfo = `<br><span class="text-gray text-sm">⏳ ${daysLeft} days left</span>`;
         }
 
-        // 史詩圖標：📜 (Edit), 🪓 (Delete), 🔮 (Awaken/Transfer)
+        // 圖標大升級：改用 📯 戰爭號角作為喚醒/轉移按鈕
         div.innerHTML = `
             <div class="quest-content-row">
                 <div>${headerHtml}${q.title} ${extraInfo}</div>
@@ -283,13 +287,12 @@ function renderQuestList(type, containerId, emptyId) {
             <div class="quest-actions action-area">
                 ${!q.isBoss ? `<span class="action-icon edit-action" onclick="openEditModal(${q.id}, 'quest')">📜</span>` : ''}
                 ${!q.isBoss ? `<span class="action-icon delete-action" onclick="deleteQuest(${q.id})">🪓</span>` : ''}
-                ${(type !== 'active' && !q.isBoss) ? `<span class="action-icon transfer-action" onclick="transferToActive(${q.id}, 'quest')">🔮</span>` : ''}
-                ${q.isBoss && type !== 'active' ? `<span class="action-icon transfer-action" onclick="transferToActive(${q.id}, 'boss-sub', ${q.bossId})">🔮</span>` : ''}
+                ${(type !== 'active' && !q.isBoss) ? `<span class="action-icon transfer-action" onclick="transferToActive(${q.id}, 'quest')">📯</span>` : ''}
+                ${q.isBoss && type !== 'active' ? `<span class="action-icon transfer-action" onclick="transferToActive(${q.id}, 'boss-sub', ${q.bossId})">📯</span>` : ''}
             </div>
         `;
         list.appendChild(div);
         
-        // 綁定極致打擊感手勢
         bindGestures(div, () => executeSlash(div, q));
     });
 }
@@ -301,16 +304,16 @@ function bindGestures(element, onComplete) {
     let startX = 0, timer, isCompleted = false;
     
     const start = (e) => {
-        if(e.target.closest('.action-area')) return; // 點擊按鈕區不觸發
+        if(e.target.closest('.action-area')) return; 
         isCompleted = false;
         startX = e.touches ? e.touches[0].clientX : e.clientX;
-        timer = setTimeout(() => { if(!isCompleted) { isCompleted=true; onComplete(e); } }, 600); // 600ms 長按
+        timer = setTimeout(() => { if(!isCompleted) { isCompleted=true; onComplete(e); } }, 600); 
     };
     
     const move = (e) => {
         if(isCompleted || startX === 0) return;
         const currentX = e.touches ? e.touches[0].clientX : e.clientX;
-        if(currentX - startX > 100) { isCompleted=true; clearTimeout(timer); onComplete(e); } // 右滑
+        if(currentX - startX > 100) { isCompleted=true; clearTimeout(timer); onComplete(e); } 
     };
     
     const end = () => { clearTimeout(timer); startX = 0; };
@@ -328,10 +331,8 @@ function executeSlash(cardEl, q) {
     const slash = document.createElement('div');
     slash.className = 'slash-line';
     cardEl.appendChild(slash);
-
     cardEl.classList.add('burning');
 
-    // 雙重噴發浮動文字 (EXP 往左，金幣往右)
     const expGain = 10;
     const goldGain = q.gold || 0;
     const rect = cardEl.getBoundingClientRect();
@@ -419,7 +420,7 @@ function renderBosses() {
                 <div class="quest-content-row">
                     <div>${st.title} <span class="text-gray text-sm">[DMG: ${st.dmg}] [💰: ${st.gold}]</span></div>
                     <div class="action-area">
-                        <span class="action-icon transfer-action" onclick="transferToActive(${st.id}, 'boss-sub', ${b.id})">🔮</span>
+                        <span class="action-icon transfer-action" onclick="transferToActive(${st.id}, 'boss-sub', ${b.id})">📯</span>
                     </div>
                 </div>
             </div>
@@ -436,7 +437,7 @@ function renderBosses() {
                 <input type="text" id="bst-title-${b.id}" placeholder="Attack Task" class="flex-grow epic-input">
                 <input type="number" id="bst-dmg-${b.id}" placeholder="DMG" value="50" class="w-20 epic-input">
                 <input type="number" id="bst-gold-${b.id}" placeholder="Gold" value="10" class="w-20 epic-input">
-                <button class="btn-icon" onclick="addBossSubtask(${b.id})">✚</button>
+                <button class="btn-icon" onclick="addBossSubtask(${b.id})">⚔️</button>
             </div>
         `;
         list.appendChild(div);
@@ -571,14 +572,21 @@ function buyItem(cost) { if (state.hero.gold >= cost) { state.hero.gold -= cost;
 // 6. UI Helpers & Animators
 // ==========================================
 function openModal(id) { document.getElementById(id).classList.remove('hidden'); }
-function closeModal(id) { 
+
+// 強化版：處理點擊外部關閉時的防呆機制
+function closeModal(id, isSubmit = false) { 
     document.getElementById(id).classList.add('hidden'); 
-    // 若取消月曆，重置暫存
-    if(id === 'calendar-modal') {
-        document.getElementById('prophecy-deadline').value = 'eternal';
-        pendingCustomDateStr = null;
+    
+    // 如果是取消/點擊外部關閉月曆，確保下拉選單復原為 eternal，避免 null 錯誤
+    if(id === 'calendar-modal' && !isSubmit) {
+        if (!pendingCustomDateStr) {
+            document.getElementById('prophecy-deadline').value = 'eternal';
+            const customOpt = document.querySelector('#prophecy-deadline option[value="custom"]');
+            if(customOpt) customOpt.text = '✨ Unveil Destiny...';
+        }
     }
 }
+
 function toggleAccordion(id) {
     const content = document.getElementById(`${id}-content`); const icon = document.getElementById(`${id}-icon`);
     if(content.classList.contains('hidden')) { content.classList.remove('hidden'); icon.innerText = '▼'; }
@@ -586,7 +594,6 @@ function toggleAccordion(id) {
 }
 function showToast(msg) { const toast = document.getElementById('epic-toast'); toast.innerText = msg; toast.classList.remove('hidden'); setTimeout(() => toast.classList.add('hidden'), 3000); }
 
-// 支援傳入自訂動畫 class (如浮動左右)
 function showFloatingText(x, y, text, color, animClass = 'floatUp') {
     const el = document.createElement('div'); el.className = `floating-text ${animClass}`;
     el.style.left = `${x}px`; el.style.top = `${y}px`; el.style.color = color; el.innerText = text;
