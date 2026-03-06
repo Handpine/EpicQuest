@@ -24,7 +24,7 @@ body {
     
     /* 引入行書中文字體，充滿手寫卷宗的神祕感 */
     font-family: 'MedievalSharp', 'Zhi Mang Xing', cursive; 
-    background-image: url('background.jpg'); /* 黑森林背景 */
+    background-image: url('background.png'); /* 黑森林背景 */
     background-size: cover; background-attachment: fixed; background-position: center;
     color: var(--text-primary); overflow-x: hidden;
 }
@@ -124,7 +124,7 @@ h1, h2, h3, .text-yellow {
 /* ================= 史詩真實羊皮紙卡片設計 ================= */
 .quest-card {
     /* 套用真實羊皮紙材質 */
-    background-image: url('parchment.jpg');
+    background-image: url('parchment.png');
     background-size: cover;
     background-position: center;
     border: 1px solid #3e2723;
