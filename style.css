@@ -22,9 +22,9 @@ body {
     user-select: none;
     -webkit-touch-callout: none;
     
-    /* 引入行書中文字體，充滿手寫卷宗的神祕感 */
-    font-family: 'MedievalSharp', 'Zhi Mang Xing', cursive; 
-    background-image: url('background.png'); /* 黑森林背景 */
+    /* 引入思源宋體 (Noto Serif TC)，保證絕不缺字，且極具古籍卷宗質感 */
+    font-family: 'MedievalSharp', 'Noto Serif TC', serif; 
+    background-image: url('background.png'); /* 嚴格使用 .png */
     background-size: cover; background-attachment: fixed; background-position: center;
     color: var(--text-primary); overflow-x: hidden;
 }
@@ -35,9 +35,8 @@ input, select { user-select: auto; -webkit-user-select: auto; }
 /* 針對 iOS 原生日曆選擇器，強制轉為暗黑模式 */
 input[type="date"] { color-scheme: dark; }
 
-/* 標題使用毛筆楷書 (Ma Shan Zheng)，更具史詩張力 */
 h1, h2, h3, .text-yellow {
-    font-family: 'Cinzel', 'Ma Shan Zheng', serif;
+    font-family: 'Cinzel', 'Noto Serif TC', serif;
     color: var(--gold);
     text-shadow: 0 0 5px rgba(255, 215, 0, 0.6); margin: 0;
 }
@@ -50,7 +49,7 @@ h1, h2, h3, .text-yellow {
 
 #global-gold-container {
     position: absolute; top: 15px; left: 15px;
-    z-index: 200; color: var(--gold); font-family: 'MedievalSharp', 'Ma Shan Zheng', serif;
+    z-index: 200; color: var(--gold); font-family: 'MedievalSharp', 'Noto Serif TC', serif;
     font-size: 1.2rem; text-shadow: 1px 1px 2px #000;
 }
 
@@ -96,7 +95,7 @@ h1, h2, h3, .text-yellow {
     background: var(--nav-bg); border-top: 1px solid var(--gold-dark);
     display: flex; justify-content: space-around; padding: 10px 0; z-index: 100;
 }
-.nav-item { text-align: center; color: var(--text-gray); font-size: 0.8rem; cursor: pointer; transition: 0.2s; padding-bottom: 5px; font-family: 'Cinzel', 'Ma Shan Zheng'; }
+.nav-item { text-align: center; color: var(--text-gray); font-size: 0.8rem; cursor: pointer; transition: 0.2s; padding-bottom: 5px; font-family: 'Cinzel', 'Noto Serif TC', serif; }
 .nav-item.active { color: var(--gold); text-shadow: 0 0 5px var(--gold); border-bottom: 3px solid var(--gold); }
 
 /* ================= 史詩化與防跑版輸入框 ================= */
@@ -105,44 +104,41 @@ h1, h2, h3, .text-yellow {
 .flex-wrap { flex-wrap: wrap; } 
 .epic-input {
     background: rgba(0, 0, 0, 0.4); border: 1px solid var(--gold-dark); border-bottom: 2px solid var(--gold);
-    color: var(--gold); border-radius: 4px; padding: 10px; font-family: 'MedievalSharp', 'Zhi Mang Xing', cursive; 
+    color: var(--gold); border-radius: 4px; padding: 10px; font-family: 'MedievalSharp', 'Noto Serif TC', serif; 
     font-size: 1.1rem; outline: none; transition: 0.3s;
-    /* 防跑版重點：允許 Input 縮小低於瀏覽器預設寬度 */
-    min-width: 0; 
+    min-width: 0; /* 防跑版重點 */
 }
 .epic-input:focus { background: rgba(0, 0, 0, 0.6); border-color: var(--gold); box-shadow: 0 0 10px rgba(255, 215, 0, 0.5); }
 .epic-input::placeholder { color: rgba(255, 215, 0, 0.3); }
 
 .btn-primary {
     background: linear-gradient(to bottom, #5d4037, #3e2723); color: var(--gold); border: 1px solid var(--gold);
-    border-radius: 4px; padding: 10px 15px; font-family: 'Cinzel', 'Ma Shan Zheng', serif; cursor: pointer; text-shadow: 1px 1px 2px #000;
+    border-radius: 4px; padding: 10px 15px; font-family: 'Cinzel', 'Noto Serif TC', serif; cursor: pointer; text-shadow: 1px 1px 2px #000;
 }
-.btn-icon { background: linear-gradient(to bottom, #5d4037, #3e2723); color: var(--gold); border: 1px solid var(--gold); border-radius: 4px; width: 40px; height: 40px; font-size: 1.2rem; cursor: pointer; flex-shrink: 0; }
-.btn-dashed { background: rgba(255,0,0,0.1); color: #ff5252; border: 1px dashed #ff5252; border-radius: 4px; padding: 15px; font-size: 1.2rem; cursor: pointer; font-family: 'Cinzel', 'Ma Shan Zheng'; }
+.btn-icon { background: linear-gradient(to bottom, #5d4037, #3e2723); color: var(--gold); border: 1px solid var(--gold); border-radius: 4px; width: 40px; height: 40px; font-size: 1.4rem; cursor: pointer; flex-shrink: 0; }
+.btn-dashed { background: rgba(255,0,0,0.1); color: #ff5252; border: 1px dashed #ff5252; border-radius: 4px; padding: 15px; font-size: 1.2rem; cursor: pointer; font-family: 'Cinzel', 'Noto Serif TC', serif; }
 
 
 /* ================= 史詩真實羊皮紙卡片設計 ================= */
 .quest-card {
-    /* 套用真實羊皮紙材質 */
+    /* 嚴格使用 .png 羊皮紙材質 */
     background-image: url('parchment.png');
     background-size: cover;
     background-position: center;
     border: 1px solid #3e2723;
     border-radius: 3px;
     box-shadow: 3px 4px 10px rgba(0,0,0,0.8), inset 0 0 25px rgba(62, 39, 35, 0.5);
-    color: #1a0f08; /* 極深邃的墨水色 */
+    color: #1a0f08; 
     padding: 15px; margin-bottom: 12px; position: relative; overflow: hidden;
-    font-weight: bold; font-size: 1.2rem;
-    text-shadow: 0px 0px 1px rgba(255,255,255,0.2); /* 墨水吃進紙張的微弱質感 */
+    font-weight: 700; font-size: 1.2rem;
+    text-shadow: 0px 0px 1px rgba(255,255,255,0.2); 
 }
 
-/* Boss 子任務血紅專屬樣式 */
 .quest-card.boss-quest {
     border: 2px solid #8a0303;
     box-shadow: 0 0 15px rgba(138, 3, 3, 0.6), inset 0 0 35px rgba(138, 3, 3, 0.6);
-    color: #4a0202; /* 暗血色字體 */
+    color: #4a0202; 
 }
-/* 血色濾鏡疊加在羊皮紙上方 */
 .quest-card.boss-quest::before {
     content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 100%;
     background: rgba(138, 3, 3, 0.15); pointer-events: none; mix-blend-mode: multiply;
@@ -153,44 +149,97 @@ h1, h2, h3, .text-yellow {
 .action-icon { font-size: 1.3rem; cursor: pointer; opacity: 0.85; transition: 0.2s; filter: drop-shadow(1px 1px 2px rgba(0,0,0,0.5)); }
 .action-icon:hover { opacity: 1; transform: scale(1.2); }
 
-/* 羽毛筆編輯模式切換按鈕 */
 .edit-toggle-icon { font-size: 1.5rem; transition: 0.3s; filter: drop-shadow(0 0 5px var(--gold)); }
 .edit-toggle-icon.active { transform: scale(1.1) rotate(15deg); filter: drop-shadow(0 0 10px #ff9800); }
 
-/* 隱藏 Active Quest 的編輯/刪除按鈕，直到進入 Edit Mode */
 #active-quest-list .quest-card .edit-action,
 #active-quest-list .quest-card .delete-action { display: none; }
 #active-quest-list.edit-mode-on .quest-card .edit-action,
 #active-quest-list.edit-mode-on .quest-card .delete-action { display: inline-block; animation: fadeIn 0.3s forwards; }
 
-/* Boss 戰任務 Tag */
 .boss-tag { background: #5c3a21; color: var(--gold); font-size: 0.8rem; padding: 2px 8px; border-radius: 2px; margin-bottom: 5px; display: inline-block; box-shadow: 0 0 8px rgba(255,0,0,0.6); border: 1px solid #8a0303; font-family: 'Cinzel', serif; }
 
-/* 預言光暈 (藍色平靜 / 紅色危險) */
 .prophecy-safe { box-shadow: 0 0 15px var(--magic-blue), inset 0 0 20px rgba(0,229,255,0.4); border: 1px solid var(--magic-blue); }
 .prophecy-danger { box-shadow: 0 0 20px var(--hp-low), inset 0 0 25px rgba(244,67,54,0.5); border: 1px solid var(--hp-low); animation: urgentShake 2s infinite; color: #5a0505; }
 
 
-/* ================= 藥水區 (優化點擊體驗) ================= */
-.potions-area { text-align: center; }
+/* ================= 史詩月曆 (Epic Calendar) ================= */
+.calendar-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 6px;
+    text-align: center;
+}
+.cal-day-name {
+    color: var(--gold-dark);
+    font-family: 'Cinzel', serif;
+    font-size: 0.85rem;
+    padding-bottom: 5px;
+    border-bottom: 1px solid rgba(212, 175, 55, 0.3);
+}
+.cal-day {
+    padding: 10px 0;
+    border-radius: 4px;
+    background: rgba(0, 0, 0, 0.4);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    color: var(--text-primary);
+    font-family: 'Cinzel', serif;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+.cal-day:hover:not(.empty) {
+    background: rgba(255, 215, 0, 0.2);
+    border-color: var(--gold);
+    box-shadow: inset 0 0 8px rgba(255, 215, 0, 0.4);
+}
+.cal-day.selected {
+    background: linear-gradient(135deg, var(--gold-dark), var(--gold));
+    color: #000;
+    font-weight: bold;
+    border-color: #fff;
+    box-shadow: 0 0 12px var(--gold);
+    transform: scale(1.1);
+    z-index: 2;
+}
+.cal-day.empty {
+    background: transparent;
+    border-color: transparent;
+    cursor: default;
+    pointer-events: none;
+}
+.cal-day.today {
+    color: var(--magic-blue);
+    text-shadow: 0 0 8px var(--magic-blue);
+    border-bottom: 2px solid var(--magic-blue);
+}
+
+
+/* ================= 藥水區 (微調體驗) ================= */
+.potions-area { text-align: center; display: flex; flex-direction: column; align-items: center; }
 .potion-list { display: flex; justify-content: center; flex-wrap: wrap; gap: 10px; }
 
-/* 主畫面已建立的藥水（顯著放大） */
+.potion-icon-small {
+    font-size: 1.8rem;
+    display: inline-block;
+    animation: float 3s infinite ease-in-out;
+    filter: drop-shadow(0 0 8px #4caf50);
+}
+
 .potion-item { 
     background: rgba(76, 175, 80, 0.2); border: 1px solid #4caf50; 
-    padding: 10px 18px; /* 加大點擊區塊 */
-    border-radius: 25px; color: #4caf50; font-size: 1.15rem; /* 加大字體 */
+    padding: 10px 18px; 
+    border-radius: 25px; color: #4caf50; font-size: 1.15rem; 
     cursor: pointer; box-shadow: 0 0 10px rgba(76, 175, 80, 0.5); 
-    font-family: 'MedievalSharp', 'Zhi Mang Xing'; transition: 0.2s;
+    font-family: 'MedievalSharp', 'Noto Serif TC', serif; transition: 0.2s;
 }
 .potion-item:active { transform: scale(0.9); }
 
-/* 管理視窗內的刪除模式藥水（紅色警告樣式） */
 .delete-potion-item {
     background: rgba(244, 67, 54, 0.15); border: 1px dashed #f44336; 
     padding: 8px 15px; border-radius: 20px; color: #f44336; font-size: 1rem; 
     cursor: pointer; box-shadow: 0 0 8px rgba(244, 67, 54, 0.4); 
-    font-family: 'MedievalSharp', 'Zhi Mang Xing'; transition: 0.2s;
+    font-family: 'MedievalSharp', 'Noto Serif TC', serif; transition: 0.2s;
 }
 .delete-potion-item::after { content: ' ✖'; font-size: 0.8rem; margin-left: 5px; }
 .delete-potion-item:hover { background: rgba(244, 67, 54, 0.3); }
@@ -214,7 +263,7 @@ h1, h2, h3, .text-yellow {
 
 /* ================= 雙重掉落浮動文字 ================= */
 .floating-text { 
-    position: absolute; font-weight: bold; font-family: 'Cinzel', 'Ma Shan Zheng'; 
+    position: absolute; font-weight: bold; font-family: 'Cinzel', 'Noto Serif TC', serif; 
     font-size: 1.6rem; z-index: 3000; pointer-events: none; 
     text-shadow: 2px 2px 5px #000, 0 0 10px currentColor; 
 }
@@ -232,12 +281,13 @@ h1, h2, h3, .text-yellow {
     100% { transform: translate(40px, -90px) scale(1.2); opacity: 0; } 
 }
 
+
 /* ================= 商店與統計系統 ================= */
 #shop-admin-top-form { border: 2px solid var(--magic-blue); box-shadow: 0 0 15px rgba(0, 229, 255, 0.3); background: rgba(10, 15, 25, 0.85); }
 .shop-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .shop-card { background: rgba(0,0,0,0.5); border: 1px solid var(--gold-dark); border-radius: 6px; padding: 12px; display: flex; flex-direction: column; gap: 8px; box-shadow: inset 0 0 10px rgba(0,0,0,0.8); }
 
-.empty-state { text-align: center; color: var(--text-gray); font-style: italic; margin-top: 10px; font-size: 1rem; font-family: 'Zhi Mang Xing', cursive; letter-spacing: 2px; }
+.empty-state { text-align: center; color: var(--text-gray); font-style: italic; margin-top: 10px; font-size: 1rem; font-family: 'Noto Serif TC', serif; letter-spacing: 2px; }
 .stat-row { display: flex; justify-content: space-between; font-size: 1rem; font-family: 'Cinzel', serif; }
 .stats-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
 .huge-number { font-size: 2rem; margin-top: 5px; }
@@ -246,8 +296,8 @@ h1, h2, h3, .text-yellow {
 .modal-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.85); z-index: 1000; display: flex; justify-content: center; align-items: center; backdrop-filter: blur(3px); }
 .modal-content { width: 90%; max-width: 400px; border: 2px solid var(--gold); box-shadow: 0 0 30px rgba(255,215,0,0.3); max-height: 90vh; overflow-y: auto; }
 
-/* 輔助與排版工具類別 (防跑版必備) */
-.flex-grow { flex: 1; min-width: 0; } /* 允許 Flex 內部元素縮小 */
+/* 輔助與排版工具類別 */
+.flex-grow { flex: 1; min-width: 0; } 
 .w-20 { width: 80px; flex-shrink: 0; }
 .w-30 { width: 110px; flex-shrink: 0; } 
 .w-full { width: 100%; }
@@ -263,4 +313,4 @@ h1, h2, h3, .text-yellow {
 @keyframes urgentShake { 0%, 100% { transform: translateX(0); } 20%, 60% { transform: translateX(-3px); } 40%, 80% { transform: translateX(3px); } }
 .debuff-warning { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; box-shadow: inset 0 0 90px var(--hp-low); pointer-events: none; z-index: 999; animation: pulse 1.5s infinite; }
 @keyframes pulse { 0%, 100% { opacity: 0.2; } 50% { opacity: 0.7; } }
-.toast { position: fixed; bottom: 90px; left: 50%; transform: translateX(-50%); background: rgba(10, 8, 5, 0.95); color: var(--gold); padding: 12px 25px; border-radius: 5px; border: 1px solid var(--gold); z-index: 2000; font-family: 'MedievalSharp', 'Ma Shan Zheng'; font-size: 1.2rem; box-shadow: 0 0 20px rgba(255,215,0,0.5); }
+.toast { position: fixed; bottom: 90px; left: 50%; transform: translateX(-50%); background: rgba(10, 8, 5, 0.95); color: var(--gold); padding: 12px 25px; border-radius: 5px; border: 1px solid var(--gold); z-index: 2000; font-family: 'MedievalSharp', 'Noto Serif TC', serif; font-size: 1.2rem; box-shadow: 0 0 20px rgba(255,215,0,0.5); }

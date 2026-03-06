@@ -3,10 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#0a0805">
+    
     <title>EpicQuest</title>
     <link rel="manifest" href="manifest.json">
     <link rel="apple-touch-icon" href="logo.png">
-    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=MedievalSharp&family=Ma+Shan+Zheng&family=Zhi+Mang+Xing&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=MedievalSharp&family=Noto+Serif+TC:wght@400;700;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -56,17 +58,14 @@
                 <div id="active-quest-list" class="list-container"></div>
                 <div id="empty-active" class="empty-state">No active quests yet...</div>
 
-                <h2 class="section-title text-yellow mt-15">⏳ Daily Reset & Potions</h2>
-                <div class="divider"></div>
-                <div class="text-center text-gray mt-10">Time until reset: <span id="countdown-timer">00:00:00</span></div>
+                <div class="divider mt-15"></div>
                 
-                <div class="potions-area mt-15">
-                    <div class="flex-between align-center mb-10">
-                        <span class="text-yellow" style="font-family: 'Cinzel'">Your Potions</span>
-                        <span class="pointer text-gray" onclick="openModal('manage-potions-modal')" style="font-size: 1.2rem; text-shadow: 0 0 5px #4caf50;">🧪 Manage</span>
-                    </div>
+                <div class="potions-area mt-10">
                     <div id="potion-list" class="potion-list flex-wrap"></div>
+                    <div class="potion-icon-small pointer mt-10" onclick="openModal('manage-potions-modal')">🧪</div>
                 </div>
+
+                <div class="text-center text-gray mt-15" style="font-size: 0.8rem;">Time until reset: <span id="countdown-timer">00:00:00</span></div>
             </div>
 
             <div id="page-future" class="page-content">
@@ -77,7 +76,7 @@
                 <div class="input-row flex-wrap mt-10">
                     <input type="text" id="tomorrow-title" placeholder="Task Name" class="flex-grow epic-input">
                     <input type="number" id="tomorrow-gold" placeholder="Gold" class="w-20 epic-input">
-                    <button class="btn-icon" onclick="addQuest('tomorrow')">✨</button>
+                    <button class="btn-icon" onclick="addQuest('tomorrow')">✚</button>
                 </div>
                 <div id="tomorrow-list" class="list-container mt-10"></div>
                 <div id="empty-tomorrow" class="empty-state">No fate sealed for tomorrow...</div>
@@ -93,10 +92,10 @@
                             <option value="7">1 Week</option>
                             <option value="14">2 Weeks</option>
                             <option value="30">1 Month</option>
-                            <option value="custom">Custom...</option>
+                            <option value="custom">Custom Date...</option>
                         </select>
-                        <input type="date" id="custom-date-input" class="hidden flex-grow epic-input">
-                        <button class="btn-icon" onclick="addQuest('prophecy')">✨</button>
+                        <input type="hidden" id="custom-date-input">
+                        <button class="btn-icon" onclick="addQuest('prophecy')">✚</button>
                     </div>
                 </div>
                 <div id="prophecy-list" class="list-container mt-10"></div>
@@ -110,7 +109,7 @@
                         <div class="divider"></div>
                         <div class="input-row mt-10">
                             <input type="text" id="backlog-title" placeholder="Task Name" class="flex-grow epic-input">
-                            <button class="btn-icon" onclick="addQuest('backlog')">+</button>
+                            <button class="btn-icon" onclick="addQuest('backlog')">✚</button>
                         </div>
                         <div id="backlog-list" class="list-container mt-10"></div>
                         <div id="empty-backlog" class="empty-state">No backlog quests yet...</div>
@@ -202,6 +201,28 @@
             <div class="nav-item" data-target="page-profile">👤<br>Profile</div>
         </nav>
 
+        <div id="calendar-modal" class="modal-overlay hidden">
+            <div class="modal-content panel" style="border-color: var(--magic-blue); box-shadow: 0 0 20px rgba(0, 229, 255, 0.4);">
+                <div class="flex-between">
+                    <h2 class="text-yellow">📅 Prophecy Date</h2>
+                    <span class="pointer text-gray" onclick="closeModal('calendar-modal')">✕</span>
+                </div>
+                <div class="divider"></div>
+                
+                <div class="calendar-header flex-between mb-10 mt-10">
+                    <button class="btn-icon" style="width:30px; height:30px;" onclick="changeMonth(-1)">◀</button>
+                    <h3 id="cal-month-year" class="text-yellow">Month Year</h3>
+                    <button class="btn-icon" style="width:30px; height:30px;" onclick="changeMonth(1)">▶</button>
+                </div>
+                
+                <div class="calendar-grid">
+                    <div class="cal-day-name">Su</div><div class="cal-day-name">Mo</div><div class="cal-day-name">Tu</div>
+                    <div class="cal-day-name">We</div><div class="cal-day-name">Th</div><div class="cal-day-name">Fr</div><div class="cal-day-name">Sa</div>
+                    </div>
+                <div id="cal-days-container" class="calendar-grid mt-5"></div>
+            </div>
+        </div>
+
         <div id="manage-potions-modal" class="modal-overlay hidden">
             <div class="modal-content panel">
                 <div class="flex-between">
@@ -215,7 +236,7 @@
                     <div class="input-row flex-wrap">
                         <input type="text" id="new-potion-name" placeholder="Recipe (e.g., Meditate)" class="flex-grow epic-input">
                         <input type="number" id="new-potion-hp" placeholder="+HP" class="w-20 epic-input">
-                        <button class="btn-icon" onclick="addPotion()">+</button>
+                        <button class="btn-icon" onclick="addPotion()">✚</button>
                     </div>
                 </div>
 

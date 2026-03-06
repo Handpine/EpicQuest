@@ -22,7 +22,12 @@ let state = {
     isAdminMode: false
 };
 
-const CACHE_KEY = 'epic-quest-v5';
+// 升級 Cache 版本，強制瀏覽器抓取新代碼
+const CACHE_KEY = 'epic-quest-v6';
+
+// 月曆專用全域變數
+let currentCalDate = new Date();
+let pendingCustomDateStr = null; // 儲存 YYYY-MM-DD
 
 function loadFromStorage() {
     const saved = localStorage.getItem(CACHE_KEY);
@@ -114,13 +119,8 @@ function updateTimer() {
 }
 
 // ==========================================
-// 3. 任務系統 (Quests & Gestures)
+// 3. 任務與史詩月曆系統 (Quests & Calendar)
 // ==========================================
-function checkCustomDate(val) {
-    const dateInput = document.getElementById('custom-date-input');
-    if(val === 'custom') dateInput.classList.remove('hidden');
-    else dateInput.classList.add('hidden');
-}
 
 function toggleActiveQuestEdit() {
     const list = document.getElementById('active-quest-list');
@@ -128,6 +128,69 @@ function toggleActiveQuestEdit() {
     list.classList.toggle('edit-mode-on');
     btn.classList.toggle('active');
 }
+
+// 攔截原生 Date，喚醒史詩月曆
+function checkCustomDate(val) {
+    if(val === 'custom') {
+        currentCalDate = new Date(); // 重置為當前月份
+        renderCalendar();
+        openModal('calendar-modal');
+    } else {
+        pendingCustomDateStr = null; // 取消自訂時清空暫存
+    }
+}
+
+function renderCalendar() {
+    const year = currentCalDate.getFullYear();
+    const month = currentCalDate.getMonth();
+    const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+    
+    document.getElementById('cal-month-year').innerText = `${monthNames[month]} ${year}`;
+    
+    const firstDay = new Date(year, month, 1).getDay();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const today = new Date();
+    
+    let html = '';
+    
+    // 補齊月曆前面的空白格
+    for(let i=0; i<firstDay; i++) {
+        html += `<div class="cal-day empty"></div>`;
+    }
+    
+    // 渲染日期
+    for(let d=1; d<=daysInMonth; d++) {
+        const iterDateStr = `${year}-${String(month+1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+        let classes = 'cal-day';
+        
+        if (year === today.getFullYear() && month === today.getMonth() && d === today.getDate()) {
+            classes += ' today';
+        }
+        if (pendingCustomDateStr === iterDateStr) {
+            classes += ' selected';
+        }
+        
+        html += `<div class="${classes}" onclick="selectCalDate(${year}, ${month}, ${d})">${d}</div>`;
+    }
+    document.getElementById('cal-days-container').innerHTML = html;
+}
+
+function changeMonth(offset) {
+    currentCalDate.setMonth(currentCalDate.getMonth() + offset);
+    renderCalendar();
+}
+
+function selectCalDate(year, month, day) {
+    pendingCustomDateStr = `${year}-${String(month+1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    renderCalendar(); // 重新渲染以套用 selected 發光特效
+    
+    // 稍微延遲讓玩家看到特效，然後關閉 Modal
+    setTimeout(() => {
+        closeModal('calendar-modal');
+        showToast(`Date Sealed: ${pendingCustomDateStr}`);
+    }, 350);
+}
+
 
 function addQuest(type) {
     let titleInput, goldInput;
@@ -145,8 +208,12 @@ function addQuest(type) {
         else if (deadline === '14') { d.setDate(d.getDate() + 14); deadlineDate = d.toISOString().split('T')[0]; }
         else if (deadline === '30') { d.setDate(d.getDate() + 30); deadlineDate = d.toISOString().split('T')[0]; }
         else if (deadline === 'custom') {
-            deadlineDate = document.getElementById('custom-date-input').value;
-            if(!deadlineDate) { showToast("Please select a date!"); return; }
+            if(!pendingCustomDateStr) { 
+                showToast("⚠️ Please select a date from the calendar!"); 
+                document.getElementById('prophecy-deadline').value = 'eternal'; // 防呆歸位
+                return; 
+            }
+            deadlineDate = pendingCustomDateStr;
         }
     }
 
@@ -158,6 +225,13 @@ function addQuest(type) {
     
     document.getElementById(titleInput).value = '';
     if(goldInput) document.getElementById(goldInput).value = '';
+    
+    // 如果是預言任務，新增後自動將下拉選單與暫存日期歸零
+    if(type === 'prophecy') {
+        document.getElementById('prophecy-deadline').value = 'eternal';
+        pendingCustomDateStr = null;
+    }
+
     saveToStorage(); renderAllQuests();
 }
 
@@ -187,7 +261,6 @@ function renderQuestList(type, containerId, emptyId) {
 
     itemsToRender.forEach(q => {
         const div = document.createElement('div');
-        // 加入史詩樣式：如果是在 Active 列表裡的 Boss 任務，會套用通體血紅的 boss-quest
         div.className = `quest-card ${q.isBoss ? 'boss-quest' : ''}`; 
         div.id = q.isBoss ? `boss-st-${q.id}` : `quest-${q.id}`;
         
@@ -252,33 +325,28 @@ function bindGestures(element, onComplete) {
 }
 
 function executeSlash(cardEl, q) {
-    // 1. 產生白光斬擊特效
     const slash = document.createElement('div');
     slash.className = 'slash-line';
     cardEl.appendChild(slash);
 
-    // 2. 羊皮紙燃燒動畫
     cardEl.classList.add('burning');
 
-    // 3. 雙重噴發浮動文字 (EXP 往左，金幣往右)
+    // 雙重噴發浮動文字 (EXP 往左，金幣往右)
     const expGain = 10;
     const goldGain = q.gold || 0;
     const rect = cardEl.getBoundingClientRect();
     
-    // EXP 噴發
     showFloatingText(rect.left + rect.width/2, rect.top, `+${expGain} EXP`, '#4caf50', 'float-up-left');
-    // 金幣噴發 (如果有金幣)
     if (goldGain > 0) {
         showFloatingText(rect.left + rect.width/2, rect.top, `+${goldGain} G`, 'var(--gold)', 'float-up-right');
     }
 
-    // 4. 等待動畫完畢後清理與結算
     setTimeout(() => {
         if (q.isBoss) {
             const boss = state.bosses.find(b => b.id === q.bossId);
             boss.currentHp -= q.dmg;
             boss.subtasks = boss.subtasks.filter(st => st.id !== q.id);
-            state.hero.gold += goldGain; // Boss 子任務獲得自訂金幣
+            state.hero.gold += goldGain; 
             if(boss.currentHp <= 0) { 
                 showToast(`Defeated ${boss.name}! +${boss.gold}G`); 
                 state.hero.gold += boss.gold; 
@@ -301,9 +369,7 @@ function executeSlash(cardEl, q) {
     }, 800);
 }
 
-// ==========================================
 // 任務管理操作
-// ==========================================
 function openEditModal(id, type) {
     const q = state.quests.find(item => item.id === id);
     if(!q) return;
@@ -359,7 +425,6 @@ function renderBosses() {
             </div>
         `).join('');
 
-        // 加入 flex-wrap 防止攻擊任務的輸入框在手機上跑版
         div.innerHTML = `
             <h2 class="text-center" style="color:var(--hp-low)">☠️ ${b.name}</h2>
             <div class="bar-container mt-10" style="border-color:var(--hp-low)"><div class="bar-fill" style="background:var(--hp-low); width:${hpPct}%"></div></div>
@@ -371,7 +436,7 @@ function renderBosses() {
                 <input type="text" id="bst-title-${b.id}" placeholder="Attack Task" class="flex-grow epic-input">
                 <input type="number" id="bst-dmg-${b.id}" placeholder="DMG" value="50" class="w-20 epic-input">
                 <input type="number" id="bst-gold-${b.id}" placeholder="Gold" value="10" class="w-20 epic-input">
-                <button class="btn-icon" onclick="addBossSubtask(${b.id})">+</button>
+                <button class="btn-icon" onclick="addBossSubtask(${b.id})">✚</button>
             </div>
         `;
         list.appendChild(div);
@@ -389,16 +454,14 @@ function addBossSubtask(bossId) {
 }
 
 // ==========================================
-// 5. Potions & Shop (複合藥水管理)
+// 5. Potions & Shop
 // ==========================================
 function renderPotions() {
-    // 渲染主畫面的藥水清單 (放大版)
     const list = document.getElementById('potion-list');
     list.innerHTML = state.potions.map(p => `
         <div class="potion-item" onclick="consumePotion(${p.hp})">${p.name} (+${p.hp})</div>
     `).join('');
 
-    // 渲染管理 Modal 內的藥水刪除清單 (紅色版)
     const deleteList = document.getElementById('delete-potion-list');
     if (deleteList) {
         deleteList.innerHTML = state.potions.map(p => `
@@ -414,7 +477,6 @@ function addPotion() {
     
     state.potions.push({ id: `p${Date.now()}`, name, hp });
     
-    // 清空輸入框，方便連續新增
     document.getElementById('new-potion-name').value = '';
     document.getElementById('new-potion-hp').value = '';
     
@@ -509,7 +571,14 @@ function buyItem(cost) { if (state.hero.gold >= cost) { state.hero.gold -= cost;
 // 6. UI Helpers & Animators
 // ==========================================
 function openModal(id) { document.getElementById(id).classList.remove('hidden'); }
-function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
+function closeModal(id) { 
+    document.getElementById(id).classList.add('hidden'); 
+    // 若取消月曆，重置暫存
+    if(id === 'calendar-modal') {
+        document.getElementById('prophecy-deadline').value = 'eternal';
+        pendingCustomDateStr = null;
+    }
+}
 function toggleAccordion(id) {
     const content = document.getElementById(`${id}-content`); const icon = document.getElementById(`${id}-icon`);
     if(content.classList.contains('hidden')) { content.classList.remove('hidden'); icon.innerText = '▼'; }
