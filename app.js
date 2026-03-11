@@ -3,7 +3,7 @@
 // ==========================================
 let state = {
     hero: {
-        name: 'Hero', // ✨ 英雄名稱
+        name: 'Hero', 
         level: 1, exp: 0, nextExp: 100, gold: 0,
         hp: 100, maxHp: 100,
         vitalityDifficulty: 24,
@@ -23,10 +23,9 @@ let state = {
     isAdminMode: false
 };
 
-// ✨ 升級 Cache 版本，確保 Boss 跨時空邏輯與純右滑手勢生效
-const CACHE_KEY = 'epic-quest-v17';
+// ✨ 升級 Cache 版本至 v18：加入排序、防誤觸、0元Bug修復與秒開機制
+const CACHE_KEY = 'epic-quest-v18';
 
-// 月曆專用全域變數 (支援多重 Context: 'create', 'edit', 'transfer')
 let currentCalDate = new Date();
 let pendingCustomDateStr = null; 
 let windowCalendarContext = 'create'; 
@@ -226,7 +225,6 @@ function gameTick() {
         state.hero.stats.questsToday = 0; state.hero.stats.hpHealedToday = 0;
         state.quests.forEach(q => { if (q.type === 'tomorrow') q.type = 'active'; });
         
-        // ✨ 新增：Boss 子任務跨日自動回歸 Active
         state.bosses.forEach(b => b.subtasks.forEach(st => {
             if (st.type === 'tomorrow') { st.type = 'active'; st.active = true; }
         }));
@@ -244,13 +242,11 @@ function gameTick() {
 
 function checkDateTransfers() {
     const todayMs = new Date().setHours(0,0,0,0);
-    // 普通預言檢查
     state.quests.forEach(q => {
         if (q.type === 'prophecy' && q.deadline !== 'eternal' && q.deadlineDate) {
             if (todayMs >= new Date(q.deadlineDate).getTime()) q.type = 'active';
         }
     });
-    // ✨ Boss 預言檢查：到期自動回歸 Active
     state.bosses.forEach(b => {
         b.subtasks.forEach(st => {
             const effectiveType = st.type || (st.active ? 'active' : 'boss-pool');
@@ -342,7 +338,6 @@ function selectProphecyOption(context, value, text) {
     }
 }
 
-// 點擊外部關閉所有下拉選單
 document.addEventListener('click', function(event) {
     ['prophecy-options-menu', 'edit-prophecy-options-menu', 'transfer-prophecy-options-menu'].forEach(menuId => {
         const menu = document.getElementById(menuId);
@@ -354,7 +349,7 @@ document.addEventListener('click', function(event) {
 });
 
 function checkCustomDate(context) {
-    windowCalendarContext = context; // 記錄是哪個視窗召喚了月曆
+    windowCalendarContext = context; 
     currentCalDate = new Date(); renderCalendar(); openModal('calendar-modal'); 
 }
 
@@ -383,7 +378,6 @@ function selectCalDate(year, month, day) {
     pendingCustomDateStr = `${year}-${String(month+1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
     renderCalendar(); 
     
-    // 根據召喚來源更新文字
     const displayId = windowCalendarContext === 'create' ? 'prophecy-deadline-display' : `${windowCalendarContext}-prophecy-deadline-display`;
     const display = document.getElementById(displayId);
     if (display) display.innerText = `✨ Sealed: ${pendingCustomDateStr}`;
@@ -418,7 +412,10 @@ function addQuest(type) {
     }
 
     const title = document.getElementById(titleInput).value;
-    const gold = goldInput && document.getElementById(goldInput).value ? parseInt(document.getElementById(goldInput).value) : 10;
+    // ✨ 核心修復：嚴謹判定金幣是否為0
+    const rawGold = goldInput ? document.getElementById(goldInput).value : '';
+    const gold = (rawGold !== '' && !isNaN(parseInt(rawGold))) ? parseInt(rawGold) : 10;
+    
     if (!title) return;
 
     state.quests.push({ id: Date.now(), title, gold, type, deadline, deadlineDate });
@@ -443,16 +440,26 @@ function renderQuestList(type, containerId, emptyId) {
     const list = document.getElementById(containerId); list.innerHTML = '';
     let itemsToRender = state.quests.filter(q => q.type === type).map(q => ({...q, isBoss: false}));
     
-    // ✨ 核心修正：讓 Boss 任務能順利散佈在對應的清單中
     state.bosses.forEach(b => {
         b.subtasks.forEach(st => {
             const effectiveType = st.type || (st.active ? 'active' : 'boss-pool');
             if (effectiveType === type) {
-                // 保留 Boss 的所有危險屬性與關聯
                 itemsToRender.push({ ...st, isBoss: true, bossId: b.id, bossName: b.name });
             }
         });
     });
+
+    // ✨ 核心優化：如果這是 Prophecies 頁面，依照截止日期排序！
+    if (type === 'prophecy') {
+        itemsToRender.sort((a, b) => {
+            // Eternal 放最下面
+            if (a.deadline === 'eternal' && b.deadline === 'eternal') return 0;
+            if (a.deadline === 'eternal') return 1;
+            if (b.deadline === 'eternal') return -1;
+            // 都有日期的話，近的排上面
+            return new Date(a.deadlineDate) - new Date(b.deadlineDate);
+        });
+    }
 
     document.getElementById(emptyId).classList.toggle('hidden', itemsToRender.length > 0);
 
@@ -466,7 +473,6 @@ function renderQuestList(type, containerId, emptyId) {
             extraInfo = `<br><span class="text-gray text-sm">⏳ ${daysLeft} days left</span>`;
         }
 
-        // 用來判定呼叫函數時要傳什麼參數
         const questTypeArg = q.isBoss ? 'boss-sub' : 'quest';
         const bossIdArg = q.isBoss ? q.bossId : 'null';
 
@@ -478,19 +484,20 @@ function renderQuestList(type, containerId, emptyId) {
             <div class="quest-actions action-area">
                 <span class="action-icon edit-action" onclick="openEditModal(${q.id}, '${questTypeArg}', ${bossIdArg})">📜</span>
                 <span class="action-icon delete-action" onclick="deleteQuest(${q.id}, '${questTypeArg}', ${bossIdArg})">🪓</span>
-                
                 ${type === 'active' ? `<span class="action-icon time-action" onclick="openTransferTimeModal(${q.id}, '${questTypeArg}', ${bossIdArg})">⏱️</span>` : ''}
-                
                 ${type !== 'active' ? `<span class="action-icon transfer-action" onclick="transferToActive(${q.id}, '${questTypeArg}', ${bossIdArg})">📯</span>` : ''}
             </div>
         `;
         list.appendChild(div); 
-        bindGestures(div, () => executeSlash(div, q));
+        
+        // ✨ 核心優化：防誤觸！只有 Active 的任務才能被斬擊
+        if (type === 'active') {
+            bindGestures(div, () => executeSlash(div, q));
+        }
     });
 }
 
 
-// ✨ 核心升級：純粹右滑斬擊 (移除了長按誤觸)
 function bindGestures(element, onComplete) {
     let startX = 0, isCompleted = false;
     const start = (e) => {
@@ -529,7 +536,6 @@ function executeSlash(cardEl, q) {
         appendToLifeProgressPlan(q.title);
 
         if (q.isBoss) {
-            // Boss 任務扣血邏輯完美連動
             const boss = state.bosses.find(b => b.id === q.bossId);
             boss.currentHp -= q.dmg;
             boss.subtasks = boss.subtasks.filter(st => st.id !== q.id);
@@ -547,7 +553,6 @@ function executeSlash(cardEl, q) {
 }
 
 
-// ✨ 強化：編輯功能 (全面支援 Boss Sub 與預言期限)
 function openEditModal(id, type, bossId = null) {
     let q;
     if (type === 'boss-sub') {
@@ -562,7 +567,6 @@ function openEditModal(id, type, bossId = null) {
     document.getElementById('edit-quest-title').value = q.title; 
     document.getElementById('edit-quest-gold').value = q.gold;
     
-    // 取得真正的 Type，決定是否顯示預言選單
     const effectiveType = q.type || (q.active ? 'active' : 'boss-pool');
     const deadlineWrapper = document.getElementById('edit-deadline-wrapper');
     
@@ -595,7 +599,10 @@ function saveEditedQuest() {
     if (!q) return;
 
     q.title = document.getElementById('edit-quest-title').value; 
-    q.gold = parseInt(document.getElementById('edit-quest-gold').value) || 10;
+    
+    // ✨ 核心修復：嚴謹判定金幣是否為0
+    const rawGold = document.getElementById('edit-quest-gold').value;
+    q.gold = (rawGold !== '' && !isNaN(parseInt(rawGold))) ? parseInt(rawGold) : 10;
 
     const effectiveType = q.type || (q.active ? 'active' : 'boss-pool');
     if (effectiveType === 'prophecy') {
@@ -634,8 +641,6 @@ function transferToActive(id, type, bossId = null) {
     saveToStorage(); renderAllQuests(); renderBosses();
 }
 
-
-// ✨ 新增：時光魔法轉移系統 (Bend Time)
 function openTransferTimeModal(id, type, bossId = null) {
     document.getElementById('transfer-quest-id').value = id;
     document.getElementById('transfer-quest-type').value = type;
@@ -654,7 +659,6 @@ function executeTimeTransfer(targetType) {
     const bossId = parseInt(document.getElementById('transfer-boss-id').value);
     let q;
 
-    // 1. 抓取任務 (Boss 任務保留在 Boss 資料結構內)
     if (type === 'boss-sub') {
         const boss = state.bosses.find(b => b.id === bossId);
         q = boss.subtasks.find(s => s.id === id);
@@ -664,11 +668,10 @@ function executeTimeTransfer(targetType) {
         q = state.quests.find(item => item.id === id);
         state.quests = state.quests.filter(item => item.id !== id);
         q.type = targetType;
-        state.quests.push(q); // 重新推入更新排序
+        state.quests.push(q); 
     }
     if (!q) return;
 
-    // 2. 賦予新時間屬性
     if (targetType === 'prophecy') {
         const deadline = document.getElementById('transfer-prophecy-deadline').value;
         q.deadline = deadline; let deadlineDate = null; const d = new Date();
@@ -678,7 +681,6 @@ function executeTimeTransfer(targetType) {
         else if (deadline === 'custom') {
             if (!pendingCustomDateStr) { 
                 showToast("⚠️ Select a calendar date first!"); 
-                // 如果是普通任務，放回原本的地方避免消失
                 if(type !== 'boss-sub') state.quests.push(q); 
                 return; 
             }
@@ -711,7 +713,6 @@ function renderBosses() {
     state.bosses.forEach(b => {
         const hpPct = (b.currentHp / b.maxHp) * 100; const div = document.createElement('div'); div.className = 'panel mt-10';
         
-        // ✨ 新增：僅在 boss-pool 中的子任務才會出現在這個頁面
         let subtasksHtml = b.subtasks.filter(st => {
             const effectiveType = st.type || (st.active ? 'active' : 'boss-pool');
             return effectiveType === 'boss-pool';
@@ -741,7 +742,9 @@ function renderBosses() {
             <div class="input-row flex-wrap mt-10">
                 <input type="text" id="bst-title-${b.id}" placeholder="Attack Task" class="flex-grow epic-input">
                 <input type="number" id="bst-dmg-${b.id}" placeholder="DMG" value="50" class="w-20 epic-input">
-                <input type="number" id="bst-gold-${b.id}" placeholder="Gold" value="10" class="w-20 epic-input">
+                
+                <input type="number" id="bst-gold-${b.id}" placeholder="Gold" class="w-20 epic-input">
+                
                 <button class="btn-icon" onclick="addBossSubtask(${b.id})">⚔️</button>
             </div>
         `;
@@ -750,12 +753,17 @@ function renderBosses() {
 }
 
 function addBossSubtask(bossId) {
-    const title = document.getElementById(`bst-title-${bossId}`).value; const dmg = parseInt(document.getElementById(`bst-dmg-${bossId}`).value) || 50; const gold = parseInt(document.getElementById(`bst-gold-${bossId}`).value) || 10;
+    const title = document.getElementById(`bst-title-${bossId}`).value; 
+    const dmg = parseInt(document.getElementById(`bst-dmg-${bossId}`).value) || 50; 
+    
+    // ✨ 核心修復：嚴謹判定金幣是否為0
+    const rawGold = document.getElementById(`bst-gold-${bossId}`).value;
+    const gold = (rawGold !== '' && !isNaN(parseInt(rawGold))) ? parseInt(rawGold) : 10;
+    
     if(!title) return; const boss = state.bosses.find(b => b.id === bossId);
     boss.subtasks.push({ id: Date.now(), title, dmg, gold, active: false }); saveToStorage(); renderBosses();
 }
 
-// ✨ 新增：放棄討伐
 function surrenderBoss(bossId) {
     if(confirm("🏳️ Are you sure you want to abandon this battle? The boss and its tasks will be lost!")) {
         state.bosses = state.bosses.filter(b => b.id !== bossId);
@@ -877,16 +885,25 @@ document.querySelectorAll('.nav-item').forEach(btn => {
         document.querySelectorAll('.page-content').forEach(p => p.classList.remove('active'));
         let target = e.target; while(!target.classList.contains('nav-item')) target = target.parentElement;
         target.classList.add('active'); document.getElementById(target.dataset.target).classList.add('active');
+
+        // ✨ 核心升級：切換頁籤時，強制關閉所有編輯模式，保持介面清爽
+        document.querySelectorAll('.edit-mode-on').forEach(el => el.classList.remove('edit-mode-on'));
+        document.querySelectorAll('.edit-toggle-icon').forEach(el => el.classList.remove('active'));
+        
+        // 關閉商店管理模式
+        state.isAdminMode = false;
+        document.getElementById('shop-admin-top-form').classList.add('hidden');
+        document.getElementById('shop-admin-btn').classList.remove('text-yellow');
+        renderShop();
     });
 });
 document.getElementById('diff-slider').addEventListener('input', (e) => { state.hero.vitalityDifficulty = parseInt(e.target.value); document.getElementById('diff-value').innerText = state.hero.vitalityDifficulty; saveToStorage(); updateHUD(); });
 
 
-window.onload = async () => {
-    await checkAuthAndUpdateUI();
-    const isCloudLoaded = await loadFromCloud();
-    if (!isCloudLoaded) loadFromStorage();
-
+// ✨ 核心升級：樂觀載入 (Optimistic UI) 解決白畫面等待問題
+window.onload = () => {
+    // 第一階段：0秒瞬間用本機資料畫出畫面，讓玩家不用等！
+    loadFromStorage();
     renderAllQuests(); 
     renderBosses(); 
     renderShop(); 
@@ -894,4 +911,17 @@ window.onload = async () => {
     document.getElementById('diff-slider').value = state.hero.vitalityDifficulty;
     document.getElementById('diff-value').innerText = state.hero.vitalityDifficulty;
     setInterval(gameTick, 1000); 
+
+    // 第二階段：在背景偷偷去雲端對資料，如果有更新再重畫一次，完全不卡頓 UI
+    (async () => {
+        await checkAuthAndUpdateUI();
+        const isCloudLoaded = await loadFromCloud();
+        if (isCloudLoaded) {
+            renderAllQuests(); 
+            renderBosses(); 
+            renderShop(); 
+            renderPotions();
+            updateHUD();
+        }
+    })();
 };
