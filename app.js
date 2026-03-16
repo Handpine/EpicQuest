@@ -23,12 +23,15 @@ let state = {
     isAdminMode: false
 };
 
-// ✨ 升級 Cache 版本至 v18：加入排序、防誤觸、0元Bug修復與秒開機制
-const CACHE_KEY = 'epic-quest-v18';
+// ✨ 升級 Cache 版本至 v19：終極防護、Life Progress 重試、防誤觸與 Tomorrow 自動轉移
+const CACHE_KEY = 'epic-quest-v19';
 
 let currentCalDate = new Date();
 let pendingCustomDateStr = null; 
 let windowCalendarContext = 'create'; 
+
+// 🛡️ 雲端同步鎖：預設為 true，避免一開網頁就把空資料覆蓋到雲端！
+let isSyncing = true; 
 
 function loadFromStorage() {
     const saved = localStorage.getItem(CACHE_KEY);
@@ -53,48 +56,60 @@ function getTodayDateKey() {
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
-async function appendToLifeProgressPlan(itemName) {
+// 🔄 加入 3 次重試機制的 Life Progress 寫入功能
+async function appendToLifeProgressPlan(itemName, retries = 3) {
     const todayKey = getTodayDateKey();
     console.log(`🔮 嘗試將 [${itemName}] 寫入 Life Progress (${todayKey})...`);
 
-    try {
-        const { data: { session } } = await supabaseClient.auth.getSession();
+    for (let i = 0; i < retries; i++) {
+        try {
+            const { data: { session } } = await supabaseClient.auth.getSession();
+            if (!session) return; // 沒登入就不執行，避免報錯
 
-        const { data: entry, error: fetchError } = await supabaseClient
-            .from('entries')
-            .select('id, plan')
-            .eq('date_key', todayKey)
-            .maybeSingle(); 
+            const { data: entry, error: fetchError } = await supabaseClient
+                .from('entries')
+                .select('id, plan')
+                .eq('date_key', todayKey)
+                .maybeSingle(); 
 
-        if (fetchError) throw fetchError;
+            if (fetchError) throw fetchError;
 
-        let newPlan = `• ${itemName}`;
-        
-        if (entry) {
-            const currentPlan = entry.plan || "";
-            newPlan = currentPlan.trim() ? `${currentPlan}\n• ${itemName}` : `• ${itemName}`;
+            let newPlan = `• ${itemName}`;
             
-            await supabaseClient
-                .from('entries')
-                .update({ plan: newPlan, updated_at: Date.now() })
-                .eq('id', entry.id);
-        } else {
-            await supabaseClient
-                .from('entries')
-                .insert([{
-                    date_key: todayKey,
-                    type: 'daily',
-                    plan: newPlan,
-                    updated_at: Date.now()
-                }]);
+            if (entry) {
+                const currentPlan = entry.plan || "";
+                newPlan = currentPlan.trim() ? `${currentPlan}\n• ${itemName}` : `• ${itemName}`;
+                
+                const { error: updateError } = await supabaseClient
+                    .from('entries')
+                    .update({ plan: newPlan, updated_at: Date.now() })
+                    .eq('id', entry.id);
+                if (updateError) throw updateError;
+            } else {
+                const { error: insertError } = await supabaseClient
+                    .from('entries')
+                    .insert([{
+                        date_key: todayKey,
+                        type: 'daily',
+                        plan: newPlan,
+                        updated_at: Date.now()
+                    }]);
+                if (insertError) throw insertError;
+            }
+            console.log("✅ Life Progress 寫入成功！");
+            return; // 成功就直接跳出迴圈
+        } catch (err) {
+            console.warn(`❌ 聯動 Life Progress 失敗 (嘗試 ${i+1}/${retries}):`, err);
+            if (i === retries - 1) showToast("⚠️ Failed to sync with Life Progress.");
+            await new Promise(r => setTimeout(r, 1000)); // 失敗則等待 1 秒後重試
         }
-        console.log("✅ Life Progress 寫入成功！");
-    } catch (err) {
-        console.warn("❌ 聯動 Life Progress 失敗:", err);
     }
 }
 
 async function saveToCloud() {
+    // 🛡️ 如果系統正在核對資料 (登入/開啟App中)，絕對禁止存檔覆蓋雲端！
+    if (isSyncing) return; 
+
     try {
         const { data: { session } } = await supabaseClient.auth.getSession();
         if (!session) return; 
@@ -112,6 +127,7 @@ async function saveToCloud() {
 }
 
 async function loadFromCloud() {
+    isSyncing = true; // 確保載入時鎖定存檔
     try {
         const { data: { session } } = await supabaseClient.auth.getSession();
         if (!session) return false;
@@ -125,17 +141,21 @@ async function loadFromCloud() {
         if (data && data.state_data) {
             state = data.state_data;
             if (!state.hero.name) state.hero.name = 'Hero'; 
+            // 存入本機，但跳過雲端上傳，避免無限迴圈
+            localStorage.setItem(CACHE_KEY, JSON.stringify(state));
             return true; 
         }
     } catch (err) {
         console.log("從雲端載入失敗...");
+    } finally {
+        isSyncing = false; // 載入結束，解除鎖定
     }
     return false;
 }
 
 function saveToStorage() {
     localStorage.setItem(CACHE_KEY, JSON.stringify(state));
-    saveToCloud();
+    saveToCloud(); // 內部會有 isSyncing 擋住
 }
 
 // ==========================================
@@ -151,7 +171,12 @@ async function handleSignUp() {
     const { data, error } = await supabaseClient.auth.signUp({ email, password });
     
     if (error) showToast(`❌ Error: ${error.message}`);
-    else showToast("✨ Guild Contract Signed! You can now login.");
+    else {
+        showToast("✨ Guild Contract Signed! Your local progress will now be synced to the cloud.");
+        // 註冊後，我們「希望」把本機資料傳上去
+        isSyncing = false; 
+        saveToCloud();
+    }
 }
 
 async function handleLogin() {
@@ -159,19 +184,26 @@ async function handleLogin() {
     const password = document.getElementById('auth-password').value;
     if (!email || !password) { showToast("⚠️ Email and Password required!"); return; }
 
+    isSyncing = true; // 🛡️ 登入瞬間立即鎖死上傳功能！
     showToast("⏳ Channeling magic...");
+    
     const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
     
-    if (error) showToast(`❌ Error: ${error.message}`);
-    else {
+    if (error) {
+        showToast(`❌ Error: ${error.message}`);
+        isSyncing = false;
+    } else {
         closeModal('auth-modal'); showToast("🔮 Welcome back, Hero!");
         document.getElementById('auth-password').value = ''; 
         checkAuthAndUpdateUI(); 
         
+        // 登入成功後，立刻從雲端把進度抓下來覆蓋本地空檔
         const loaded = await loadFromCloud();
         if (loaded) {
             renderAllQuests(); renderBosses(); renderShop(); renderPotions(); updateHUD();
             showToast("☁️ Cloud state synced!");
+        } else {
+            isSyncing = false;
         }
     }
 }
@@ -242,17 +274,28 @@ function gameTick() {
 
 function checkDateTransfers() {
     const todayMs = new Date().setHours(0,0,0,0);
+    
     state.quests.forEach(q => {
         if (q.type === 'prophecy' && q.deadline !== 'eternal' && q.deadlineDate) {
-            if (todayMs >= new Date(q.deadlineDate).getTime()) q.type = 'active';
+            const dlMs = new Date(q.deadlineDate).getTime();
+            const daysLeft = Math.ceil((dlMs - todayMs) / 86400000);
+            
+            if (daysLeft <= 0) q.type = 'active'; // 當天降臨 Active
+            else if (daysLeft === 1) q.type = 'tomorrow'; // ✨ 剩 1 天自動降臨 Tomorrow!
         }
     });
+    
     state.bosses.forEach(b => {
         b.subtasks.forEach(st => {
             const effectiveType = st.type || (st.active ? 'active' : 'boss-pool');
             if (effectiveType === 'prophecy' && st.deadline !== 'eternal' && st.deadlineDate) {
-                if (todayMs >= new Date(st.deadlineDate).getTime()) {
+                const dlMs = new Date(st.deadlineDate).getTime();
+                const daysLeft = Math.ceil((dlMs - todayMs) / 86400000);
+                
+                if (daysLeft <= 0) {
                     st.type = 'active'; st.active = true;
+                } else if (daysLeft === 1) {
+                    st.type = 'tomorrow'; st.active = false;
                 }
             }
         });
@@ -314,7 +357,6 @@ function toggleBossEdit() {
     document.querySelectorAll('.boss-list-group').forEach(list => list.classList.toggle('edit-mode-on'));
     document.getElementById('toggle-boss-edit-btn').classList.toggle('active');
 }
-
 
 function toggleCustomSelect(context) { 
     const menuId = context === 'create' ? 'prophecy-options-menu' : `${context}-prophecy-options-menu`;
@@ -412,7 +454,6 @@ function addQuest(type) {
     }
 
     const title = document.getElementById(titleInput).value;
-    // ✨ 核心修復：嚴謹判定金幣是否為0
     const rawGold = goldInput ? document.getElementById(goldInput).value : '';
     const gold = (rawGold !== '' && !isNaN(parseInt(rawGold))) ? parseInt(rawGold) : 10;
     
@@ -449,14 +490,11 @@ function renderQuestList(type, containerId, emptyId) {
         });
     });
 
-    // ✨ 核心優化：如果這是 Prophecies 頁面，依照截止日期排序！
     if (type === 'prophecy') {
         itemsToRender.sort((a, b) => {
-            // Eternal 放最下面
             if (a.deadline === 'eternal' && b.deadline === 'eternal') return 0;
             if (a.deadline === 'eternal') return 1;
             if (b.deadline === 'eternal') return -1;
-            // 都有日期的話，近的排上面
             return new Date(a.deadlineDate) - new Date(b.deadlineDate);
         });
     }
@@ -468,7 +506,7 @@ function renderQuestList(type, containerId, emptyId) {
         let headerHtml = q.isBoss ? `<div class="boss-tag">🐉 ${q.bossName}</div><br>` : ''; let extraInfo = '';
         
         if(type === 'prophecy' && q.deadlineDate) {
-            const daysLeft = Math.ceil((new Date(q.deadlineDate) - new Date()) / 8.64e7);
+            const daysLeft = Math.ceil((new Date(q.deadlineDate) - new Date().setHours(0,0,0,0)) / 8.64e7);
             if(daysLeft <= 3) div.classList.add('prophecy-danger'); else div.classList.add('prophecy-safe');
             extraInfo = `<br><span class="text-gray text-sm">⏳ ${daysLeft} days left</span>`;
         }
@@ -490,30 +528,42 @@ function renderQuestList(type, containerId, emptyId) {
         `;
         list.appendChild(div); 
         
-        // ✨ 核心優化：防誤觸！只有 Active 的任務才能被斬擊
+        // ✨ 防誤觸：只有 Active 任務能被滑動斬擊
         if (type === 'active') {
             bindGestures(div, () => executeSlash(div, q));
         }
     });
 }
 
-
 function bindGestures(element, onComplete) {
-    let startX = 0, isCompleted = false;
+    let startX = 0, startY = 0, isCompleted = false;
+    
     const start = (e) => {
-        if(e.target.closest('.action-area')) return; 
+        // 🛑 防誤觸：如果列表正處於編輯模式（有出現預言書/羽毛筆），直接禁用所有滑動斬擊！
+        if (document.getElementById('active-quest-list').classList.contains('edit-mode-on')) return;
+        if (e.target.closest('.action-area')) return; 
+        
         isCompleted = false; 
         startX = e.touches ? e.touches[0].clientX : e.clientX;
+        startY = e.touches ? e.touches[0].clientY : e.clientY;
     };
+    
     const move = (e) => {
         if(isCompleted || startX === 0) return; 
         const currentX = e.touches ? e.touches[0].clientX : e.clientX;
-        if(currentX - startX > 100) { 
-            isCompleted = true; startX = 0; 
+        const currentY = e.touches ? e.touches[0].clientY : e.clientY;
+        
+        const diffX = currentX - startX;
+        const diffY = Math.abs(currentY - startY);
+        
+        // 🛑 防誤觸：向右滑動距離必須大於 150px (原本100)，且上下偏移不得超過 50px (必須是純水平滑動)
+        if(diffX > 150 && diffY < 50) { 
+            isCompleted = true; startX = 0; startY = 0; 
             onComplete(e); 
         } 
     };
-    const end = () => { startX = 0; };
+    
+    const end = () => { startX = 0; startY = 0; };
 
     element.addEventListener('touchstart', start, {passive: true}); 
     element.addEventListener('touchmove', move, {passive: true});
@@ -533,7 +583,7 @@ function executeSlash(cardEl, q) {
     if (goldGain > 0) showFloatingText(rect.left + rect.width/2, rect.top, `+${goldGain} G`, 'var(--gold)', 'float-up-right');
 
     setTimeout(() => {
-        appendToLifeProgressPlan(q.title);
+        appendToLifeProgressPlan(q.title); // 寫入 Life Progress (內含重試機制)
 
         if (q.isBoss) {
             const boss = state.bosses.find(b => b.id === q.bossId);
@@ -600,7 +650,6 @@ function saveEditedQuest() {
 
     q.title = document.getElementById('edit-quest-title').value; 
     
-    // ✨ 核心修復：嚴謹判定金幣是否為0
     const rawGold = document.getElementById('edit-quest-gold').value;
     q.gold = (rawGold !== '' && !isNaN(parseInt(rawGold))) ? parseInt(rawGold) : 10;
 
@@ -756,7 +805,6 @@ function addBossSubtask(bossId) {
     const title = document.getElementById(`bst-title-${bossId}`).value; 
     const dmg = parseInt(document.getElementById(`bst-dmg-${bossId}`).value) || 50; 
     
-    // ✨ 核心修復：嚴謹判定金幣是否為0
     const rawGold = document.getElementById(`bst-gold-${bossId}`).value;
     const gold = (rawGold !== '' && !isNaN(parseInt(rawGold))) ? parseInt(rawGold) : 10;
     
@@ -886,11 +934,9 @@ document.querySelectorAll('.nav-item').forEach(btn => {
         let target = e.target; while(!target.classList.contains('nav-item')) target = target.parentElement;
         target.classList.add('active'); document.getElementById(target.dataset.target).classList.add('active');
 
-        // ✨ 核心升級：切換頁籤時，強制關閉所有編輯模式，保持介面清爽
         document.querySelectorAll('.edit-mode-on').forEach(el => el.classList.remove('edit-mode-on'));
         document.querySelectorAll('.edit-toggle-icon').forEach(el => el.classList.remove('active'));
         
-        // 關閉商店管理模式
         state.isAdminMode = false;
         document.getElementById('shop-admin-top-form').classList.add('hidden');
         document.getElementById('shop-admin-btn').classList.remove('text-yellow');
@@ -900,9 +946,10 @@ document.querySelectorAll('.nav-item').forEach(btn => {
 document.getElementById('diff-slider').addEventListener('input', (e) => { state.hero.vitalityDifficulty = parseInt(e.target.value); document.getElementById('diff-value').innerText = state.hero.vitalityDifficulty; saveToStorage(); updateHUD(); });
 
 
-// ✨ 核心升級：樂觀載入 (Optimistic UI) 解決白畫面等待問題
+// ✨ 核心升級：雲端同步保護機制，徹底解決覆蓋空資料的問題
 window.onload = () => {
-    // 第一階段：0秒瞬間用本機資料畫出畫面，讓玩家不用等！
+    isSyncing = true; // 🔒 預設鎖定，防止本地空進度上傳雲端
+
     loadFromStorage();
     renderAllQuests(); 
     renderBosses(); 
@@ -910,18 +957,28 @@ window.onload = () => {
     renderPotions();
     document.getElementById('diff-slider').value = state.hero.vitalityDifficulty;
     document.getElementById('diff-value').innerText = state.hero.vitalityDifficulty;
+    
+    // 定時器可先啟動，但 saveToCloud 內部會被 isSyncing 擋下
     setInterval(gameTick, 1000); 
 
-    // 第二階段：在背景偷偷去雲端對資料，如果有更新再重畫一次，完全不卡頓 UI
+    // 在背景偷偷連線核對資料
     (async () => {
         await checkAuthAndUpdateUI();
-        const isCloudLoaded = await loadFromCloud();
-        if (isCloudLoaded) {
-            renderAllQuests(); 
-            renderBosses(); 
-            renderShop(); 
-            renderPotions();
-            updateHUD();
+        const { data: { session } } = await supabaseClient.auth.getSession();
+        
+        // 如果有登入，才嘗試去雲端抓資料
+        if (session) {
+            const isCloudLoaded = await loadFromCloud();
+            if (isCloudLoaded) {
+                renderAllQuests(); 
+                renderBosses(); 
+                renderShop(); 
+                renderPotions();
+                updateHUD();
+            }
         }
+        
+        // 🔒 確認所有雲端/本地資料都處理完畢後，才解除同步鎖定
+        isSyncing = false; 
     })();
 };

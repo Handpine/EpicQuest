@@ -398,15 +398,21 @@
                 </div>
                 <div class="divider" style="background: linear-gradient(90deg, transparent, var(--magic-blue), transparent);"></div>
                 
-                <p class="text-center text-gray text-sm mt-10 mb-15">Awaken your hero to sync your epic tales across the realm. Your legacy awaits.</p>
+                <p class="text-center text-gray text-sm mt-10 mb-10">Awaken your hero to sync your epic tales across the realm.</p>
                 
-                <input type="email" id="auth-email" placeholder="Hero's Email" class="w-full mt-10 epic-input">
+                <input type="email" id="auth-email" placeholder="Hero's Email" class="w-full mt-5 epic-input">
                 <input type="password" id="auth-password" placeholder="Secret Passphrase" class="w-full mt-10 epic-input">
                 
                 <div class="flex-row mt-15">
-                    <button class="btn-primary flex-grow" style="background: linear-gradient(to bottom, #004d40, #00251a); border-color: var(--magic-blue); color: var(--magic-blue);" onclick="handleLogin()">⚔️ Enter Guild</button>
-                    <button class="btn-dashed flex-grow" onclick="handleSignUp()">✒️ Forge Contract</button>
+                    <button class="btn-primary flex-grow" style="background: linear-gradient(to bottom, #004d40, #00251a); border-color: var(--magic-blue); color: var(--magic-blue);" onclick="handleLogin()">⚔️ Enter Guild<br><span style="font-size:0.7rem">(Login 登入)</span></button>
+                    <button class="btn-dashed flex-grow" onclick="handleSignUp()">✒️ Forge Contract<br><span style="font-size:0.7rem">(Sign Up 註冊)</span></button>
                 </div>
+                
+                <p class="text-center mt-15" style="font-size: 0.75rem; color: #ff5252; font-family: 'Noto Serif TC', serif;">
+                    ⚠️ <b>警告：</b><br>
+                    【註冊】將會建立全新的空白雲端進度。<br>
+                    【登入】將載入雲端進度（會覆蓋當前未登入的本地資料）。
+                </p>
             </div>
         </div>
 
@@ -416,7 +422,11 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script>
         const SUPABASE_URL = 'https://rusnrvsoglpprwltqcnr.supabase.co';
-        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ1c25ydnNvZ2xwcHJ3bHRxY25yIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA3MDU3MzUsImV4cCI6MjA4NjI4MTczNX0.Gj0iJKduA2NuwNiR7-Se7J6cza201DAiWBRkv8KyMjo';
+        
+        // 🔒 安全提醒：Anon Key 公開是正常的，真正的防護在於 Supabase 後台的 RLS 設定。
+        // 請將下方字串替換為你原本的那一長串 Supabase 金鑰！
+        const SUPABASE_ANON_KEY = '請貼回你原本的SUPABASE_ANON_KEY字串'; 
+        
         const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
     </script>
     <script src="app.js"></script>
