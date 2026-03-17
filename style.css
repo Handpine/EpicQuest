@@ -24,7 +24,7 @@ body {
     
     /* 引入思源宋體 (Noto Serif TC)，保證絕不缺字，且極具古籍卷宗質感 */
     font-family: 'MedievalSharp', 'Noto Serif TC', serif; 
-    background-image: url('background.png'); /* 嚴格使用 .png */
+    background-image: url('background.png'); /* 嚴格使用 .png 絕對不改 */
     background-size: cover; background-attachment: fixed; background-position: center;
     color: var(--text-primary); overflow-x: hidden;
 }
@@ -417,6 +417,25 @@ h1, h2, h3, .text-yellow {
     0% { transform: scale(0.8) translateY(20px); opacity: 0; filter: blur(4px); }
     100% { transform: scale(1) translateY(0); opacity: 1; filter: blur(0); }
 }
+
+/* 🩸 撤退確認專屬面板 (Surrender Modal) */
+#surrender-modal { z-index: 1200; }
+#surrender-modal .modal-content {
+    background-image: url('parchment.png');
+    background-size: cover;
+    background-position: center;
+    border: 2px solid var(--hp-low) !important;
+    box-shadow: 0 0 40px rgba(244, 67, 54, 0.6), inset 0 0 30px rgba(60, 0, 0, 0.8) !important;
+    animation: dangerModalSummon 0.4s cubic-bezier(0.1, 0.9, 0.2, 1) forwards;
+}
+#surrender-modal .text-yellow { color: #ff5252 !important; text-shadow: 0 0 10px rgba(244, 67, 54, 0.6); }
+
+/* 危險震懾特效 */
+@keyframes dangerModalSummon {
+    0% { transform: scale(0.8) translateY(20px); opacity: 0; filter: drop-shadow(0 0 20px red); }
+    100% { transform: scale(1) translateY(0); opacity: 1; filter: drop-shadow(0 0 0 transparent); }
+}
+
 
 /* 輔助與排版工具類別 */
 .flex-grow { flex: 1; min-width: 0; } 

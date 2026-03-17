@@ -23,14 +23,13 @@ let state = {
     isAdminMode: false
 };
 
-// ✨ 升級 Cache 版本至 v19：終極防護、Life Progress 重試、防誤觸與 Tomorrow 自動轉移
-const CACHE_KEY = 'epic-quest-v19';
+// ✨ 升級 Cache 版本至 v20：徹底修復 UTC 時區 Bug、加入史詩撤退視窗
+const CACHE_KEY = 'epic-quest-v20';
 
 let currentCalDate = new Date();
 let pendingCustomDateStr = null; 
 let windowCalendarContext = 'create'; 
 
-// 🛡️ 雲端同步鎖：預設為 true，避免一開網頁就把空資料覆蓋到雲端！
 let isSyncing = true; 
 
 function loadFromStorage() {
@@ -48,15 +47,30 @@ function getWeekIdentifier() {
 
 
 // ==========================================
+// 🌟 日期與時區處理工具 (解決 UTC 偏移 Bug) 🌟
+// ==========================================
+
+// 將 Date 物件轉為 YYYY-MM-DD (強制本地時間，杜絕 toISOString 的倫敦時區干擾)
+function getLocalDateStr(dateObj = new Date()) {
+    return `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}-${String(dateObj.getDate()).padStart(2, '0')}`;
+}
+
+// 將 YYYY-MM-DD 字串轉為本地時間的午夜 00:00:00 (準確計算天數)
+function getLocalDateFromStr(dateStr) {
+    if (!dateStr) return new Date();
+    const [y, m, d] = dateStr.split('-');
+    return new Date(y, m - 1, d);
+}
+
+
+// ==========================================
 // 🌟 雲端同步與 Life Progress 聯動核心 🌟
 // ==========================================
 
 function getTodayDateKey() {
-    const d = new Date();
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    return getLocalDateStr(new Date());
 }
 
-// 🔄 加入 3 次重試機制的 Life Progress 寫入功能
 async function appendToLifeProgressPlan(itemName, retries = 3) {
     const todayKey = getTodayDateKey();
     console.log(`🔮 嘗試將 [${itemName}] 寫入 Life Progress (${todayKey})...`);
@@ -64,7 +78,7 @@ async function appendToLifeProgressPlan(itemName, retries = 3) {
     for (let i = 0; i < retries; i++) {
         try {
             const { data: { session } } = await supabaseClient.auth.getSession();
-            if (!session) return; // 沒登入就不執行，避免報錯
+            if (!session) return; 
 
             const { data: entry, error: fetchError } = await supabaseClient
                 .from('entries')
@@ -97,19 +111,17 @@ async function appendToLifeProgressPlan(itemName, retries = 3) {
                 if (insertError) throw insertError;
             }
             console.log("✅ Life Progress 寫入成功！");
-            return; // 成功就直接跳出迴圈
+            return; 
         } catch (err) {
             console.warn(`❌ 聯動 Life Progress 失敗 (嘗試 ${i+1}/${retries}):`, err);
             if (i === retries - 1) showToast("⚠️ Failed to sync with Life Progress.");
-            await new Promise(r => setTimeout(r, 1000)); // 失敗則等待 1 秒後重試
+            await new Promise(r => setTimeout(r, 1000)); 
         }
     }
 }
 
 async function saveToCloud() {
-    // 🛡️ 如果系統正在核對資料 (登入/開啟App中)，絕對禁止存檔覆蓋雲端！
     if (isSyncing) return; 
-
     try {
         const { data: { session } } = await supabaseClient.auth.getSession();
         if (!session) return; 
@@ -127,7 +139,7 @@ async function saveToCloud() {
 }
 
 async function loadFromCloud() {
-    isSyncing = true; // 確保載入時鎖定存檔
+    isSyncing = true; 
     try {
         const { data: { session } } = await supabaseClient.auth.getSession();
         if (!session) return false;
@@ -141,21 +153,20 @@ async function loadFromCloud() {
         if (data && data.state_data) {
             state = data.state_data;
             if (!state.hero.name) state.hero.name = 'Hero'; 
-            // 存入本機，但跳過雲端上傳，避免無限迴圈
             localStorage.setItem(CACHE_KEY, JSON.stringify(state));
             return true; 
         }
     } catch (err) {
         console.log("從雲端載入失敗...");
     } finally {
-        isSyncing = false; // 載入結束，解除鎖定
+        isSyncing = false; 
     }
     return false;
 }
 
 function saveToStorage() {
     localStorage.setItem(CACHE_KEY, JSON.stringify(state));
-    saveToCloud(); // 內部會有 isSyncing 擋住
+    saveToCloud(); 
 }
 
 // ==========================================
@@ -173,7 +184,6 @@ async function handleSignUp() {
     if (error) showToast(`❌ Error: ${error.message}`);
     else {
         showToast("✨ Guild Contract Signed! Your local progress will now be synced to the cloud.");
-        // 註冊後，我們「希望」把本機資料傳上去
         isSyncing = false; 
         saveToCloud();
     }
@@ -184,7 +194,7 @@ async function handleLogin() {
     const password = document.getElementById('auth-password').value;
     if (!email || !password) { showToast("⚠️ Email and Password required!"); return; }
 
-    isSyncing = true; // 🛡️ 登入瞬間立即鎖死上傳功能！
+    isSyncing = true; 
     showToast("⏳ Channeling magic...");
     
     const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
@@ -197,7 +207,6 @@ async function handleLogin() {
         document.getElementById('auth-password').value = ''; 
         checkAuthAndUpdateUI(); 
         
-        // 登入成功後，立刻從雲端把進度抓下來覆蓋本地空檔
         const loaded = await loadFromCloud();
         if (loaded) {
             renderAllQuests(); renderBosses(); renderShop(); renderPotions(); updateHUD();
@@ -277,11 +286,12 @@ function checkDateTransfers() {
     
     state.quests.forEach(q => {
         if (q.type === 'prophecy' && q.deadline !== 'eternal' && q.deadlineDate) {
-            const dlMs = new Date(q.deadlineDate).getTime();
-            const daysLeft = Math.ceil((dlMs - todayMs) / 86400000);
+            // 使用新版工具：完全不受 UTC 干擾的準確毫秒數
+            const dlMs = getLocalDateFromStr(q.deadlineDate).getTime();
+            const daysLeft = Math.round((dlMs - todayMs) / 86400000);
             
-            if (daysLeft <= 0) q.type = 'active'; // 當天降臨 Active
-            else if (daysLeft === 1) q.type = 'tomorrow'; // ✨ 剩 1 天自動降臨 Tomorrow!
+            if (daysLeft <= 0) q.type = 'active'; 
+            else if (daysLeft === 1) q.type = 'tomorrow'; 
         }
     });
     
@@ -289,8 +299,8 @@ function checkDateTransfers() {
         b.subtasks.forEach(st => {
             const effectiveType = st.type || (st.active ? 'active' : 'boss-pool');
             if (effectiveType === 'prophecy' && st.deadline !== 'eternal' && st.deadlineDate) {
-                const dlMs = new Date(st.deadlineDate).getTime();
-                const daysLeft = Math.ceil((dlMs - todayMs) / 86400000);
+                const dlMs = getLocalDateFromStr(st.deadlineDate).getTime();
+                const daysLeft = Math.round((dlMs - todayMs) / 86400000);
                 
                 if (daysLeft <= 0) {
                     st.type = 'active'; st.active = true;
@@ -439,9 +449,10 @@ function addQuest(type) {
         titleInput = 'prophecy-title'; goldInput = 'prophecy-gold'; 
         deadline = document.getElementById('prophecy-deadline').value;
         const d = new Date();
-        if (deadline === '7') { d.setDate(d.getDate() + 7); deadlineDate = d.toISOString().split('T')[0]; }
-        else if (deadline === '14') { d.setDate(d.getDate() + 14); deadlineDate = d.toISOString().split('T')[0]; }
-        else if (deadline === '30') { d.setDate(d.getDate() + 30); deadlineDate = d.toISOString().split('T')[0]; }
+        // 使用新版 getLocalDateStr 工具，確保日期存檔是乾淨的本地時間 YYYY-MM-DD
+        if (deadline === '7') { d.setDate(d.getDate() + 7); deadlineDate = getLocalDateStr(d); }
+        else if (deadline === '14') { d.setDate(d.getDate() + 14); deadlineDate = getLocalDateStr(d); }
+        else if (deadline === '30') { d.setDate(d.getDate() + 30); deadlineDate = getLocalDateStr(d); }
         else if (deadline === 'custom') {
             if(!pendingCustomDateStr) { 
                 showToast("⚠️ Please select a date from the calendar!"); 
@@ -495,7 +506,7 @@ function renderQuestList(type, containerId, emptyId) {
             if (a.deadline === 'eternal' && b.deadline === 'eternal') return 0;
             if (a.deadline === 'eternal') return 1;
             if (b.deadline === 'eternal') return -1;
-            return new Date(a.deadlineDate) - new Date(b.deadlineDate);
+            return getLocalDateFromStr(a.deadlineDate).getTime() - getLocalDateFromStr(b.deadlineDate).getTime();
         });
     }
 
@@ -506,7 +517,10 @@ function renderQuestList(type, containerId, emptyId) {
         let headerHtml = q.isBoss ? `<div class="boss-tag">🐉 ${q.bossName}</div><br>` : ''; let extraInfo = '';
         
         if(type === 'prophecy' && q.deadlineDate) {
-            const daysLeft = Math.ceil((new Date(q.deadlineDate) - new Date().setHours(0,0,0,0)) / 8.64e7);
+            const todayMs = new Date().setHours(0,0,0,0);
+            const dlMs = getLocalDateFromStr(q.deadlineDate).getTime();
+            const daysLeft = Math.round((dlMs - todayMs) / 86400000); // 準確計算，無懼日光節約時間干擾
+            
             if(daysLeft <= 3) div.classList.add('prophecy-danger'); else div.classList.add('prophecy-safe');
             extraInfo = `<br><span class="text-gray text-sm">⏳ ${daysLeft} days left</span>`;
         }
@@ -539,7 +553,6 @@ function bindGestures(element, onComplete) {
     let startX = 0, startY = 0, isCompleted = false;
     
     const start = (e) => {
-        // 🛑 防誤觸：如果列表正處於編輯模式（有出現預言書/羽毛筆），直接禁用所有滑動斬擊！
         if (document.getElementById('active-quest-list').classList.contains('edit-mode-on')) return;
         if (e.target.closest('.action-area')) return; 
         
@@ -556,7 +569,6 @@ function bindGestures(element, onComplete) {
         const diffX = currentX - startX;
         const diffY = Math.abs(currentY - startY);
         
-        // 🛑 防誤觸：向右滑動距離必須大於 150px (原本100)，且上下偏移不得超過 50px (必須是純水平滑動)
         if(diffX > 150 && diffY < 50) { 
             isCompleted = true; startX = 0; startY = 0; 
             onComplete(e); 
@@ -583,7 +595,7 @@ function executeSlash(cardEl, q) {
     if (goldGain > 0) showFloatingText(rect.left + rect.width/2, rect.top, `+${goldGain} G`, 'var(--gold)', 'float-up-right');
 
     setTimeout(() => {
-        appendToLifeProgressPlan(q.title); // 寫入 Life Progress (內含重試機制)
+        appendToLifeProgressPlan(q.title); 
 
         if (q.isBoss) {
             const boss = state.bosses.find(b => b.id === q.bossId);
@@ -657,9 +669,9 @@ function saveEditedQuest() {
     if (effectiveType === 'prophecy') {
         const deadline = document.getElementById('edit-prophecy-deadline').value;
         q.deadline = deadline; let deadlineDate = null; const d = new Date();
-        if (deadline === '7') { d.setDate(d.getDate() + 7); deadlineDate = d.toISOString().split('T')[0]; }
-        else if (deadline === '14') { d.setDate(d.getDate() + 14); deadlineDate = d.toISOString().split('T')[0]; }
-        else if (deadline === '30') { d.setDate(d.getDate() + 30); deadlineDate = d.toISOString().split('T')[0]; }
+        if (deadline === '7') { d.setDate(d.getDate() + 7); deadlineDate = getLocalDateStr(d); }
+        else if (deadline === '14') { d.setDate(d.getDate() + 14); deadlineDate = getLocalDateStr(d); }
+        else if (deadline === '30') { d.setDate(d.getDate() + 30); deadlineDate = getLocalDateStr(d); }
         else if (deadline === 'custom') deadlineDate = pendingCustomDateStr;
         q.deadlineDate = deadlineDate;
     }
@@ -724,9 +736,9 @@ function executeTimeTransfer(targetType) {
     if (targetType === 'prophecy') {
         const deadline = document.getElementById('transfer-prophecy-deadline').value;
         q.deadline = deadline; let deadlineDate = null; const d = new Date();
-        if (deadline === '7') { d.setDate(d.getDate() + 7); deadlineDate = d.toISOString().split('T')[0]; }
-        else if (deadline === '14') { d.setDate(d.getDate() + 14); deadlineDate = d.toISOString().split('T')[0]; }
-        else if (deadline === '30') { d.setDate(d.getDate() + 30); deadlineDate = d.toISOString().split('T')[0]; }
+        if (deadline === '7') { d.setDate(d.getDate() + 7); deadlineDate = getLocalDateStr(d); }
+        else if (deadline === '14') { d.setDate(d.getDate() + 14); deadlineDate = getLocalDateStr(d); }
+        else if (deadline === '30') { d.setDate(d.getDate() + 30); deadlineDate = getLocalDateStr(d); }
         else if (deadline === 'custom') {
             if (!pendingCustomDateStr) { 
                 showToast("⚠️ Select a calendar date first!"); 
@@ -812,13 +824,22 @@ function addBossSubtask(bossId) {
     boss.subtasks.push({ id: Date.now(), title, dmg, gold, active: false }); saveToStorage(); renderBosses();
 }
 
+// 🛡️ 新增：對接客製化撤退 Modal
 function surrenderBoss(bossId) {
-    if(confirm("🏳️ Are you sure you want to abandon this battle? The boss and its tasks will be lost!")) {
-        state.bosses = state.bosses.filter(b => b.id !== bossId);
-        saveToStorage(); renderBosses(); renderAllQuests(); showToast("🏳️ Battle Abandoned.");
-    }
+    document.getElementById('surrender-boss-id').value = bossId;
+    openModal('surrender-modal');
 }
 
+// 🛡️ 新增：真正執行放棄 Boss 的邏輯
+function confirmSurrender() {
+    const bossId = parseInt(document.getElementById('surrender-boss-id').value);
+    state.bosses = state.bosses.filter(b => b.id !== bossId);
+    saveToStorage(); 
+    renderBosses(); 
+    renderAllQuests(); 
+    showToast("🏳️ Battle Abandoned.");
+    closeModal('surrender-modal');
+}
 
 // ==========================================
 // 6. Potions & Shop
@@ -946,9 +967,9 @@ document.querySelectorAll('.nav-item').forEach(btn => {
 document.getElementById('diff-slider').addEventListener('input', (e) => { state.hero.vitalityDifficulty = parseInt(e.target.value); document.getElementById('diff-value').innerText = state.hero.vitalityDifficulty; saveToStorage(); updateHUD(); });
 
 
-// ✨ 核心升級：雲端同步保護機制，徹底解決覆蓋空資料的問題
+// ✨ 核心升級：樂觀載入與同步鎖定
 window.onload = () => {
-    isSyncing = true; // 🔒 預設鎖定，防止本地空進度上傳雲端
+    isSyncing = true; 
 
     loadFromStorage();
     renderAllQuests(); 
@@ -958,15 +979,12 @@ window.onload = () => {
     document.getElementById('diff-slider').value = state.hero.vitalityDifficulty;
     document.getElementById('diff-value').innerText = state.hero.vitalityDifficulty;
     
-    // 定時器可先啟動，但 saveToCloud 內部會被 isSyncing 擋下
     setInterval(gameTick, 1000); 
 
-    // 在背景偷偷連線核對資料
     (async () => {
         await checkAuthAndUpdateUI();
         const { data: { session } } = await supabaseClient.auth.getSession();
         
-        // 如果有登入，才嘗試去雲端抓資料
         if (session) {
             const isCloudLoaded = await loadFromCloud();
             if (isCloudLoaded) {
@@ -978,7 +996,6 @@ window.onload = () => {
             }
         }
         
-        // 🔒 確認所有雲端/本地資料都處理完畢後，才解除同步鎖定
         isSyncing = false; 
     })();
 };
