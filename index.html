@@ -205,7 +205,14 @@
                     <h2 class="text-yellow">🛡️ Guild Status</h2>
                     <p class="text-gray text-sm mt-5 mb-10" id="auth-status-text">Not logged in (Local Save Only)</p>
                     <button id="btn-show-login" class="btn-primary w-full" onclick="openModal('auth-modal')">Link to Cloud Database</button>
-                    <button id="btn-logout" class="btn-dashed w-full hidden" onclick="handleLogout()">Leave Guild (Logout)</button>
+
+                    <div id="sync-controls" class="hidden mt-15 mb-15">
+                        <p class="text-center text-gray text-sm mb-10">Last Sync: <span id="last-sync-time" class="text-yellow" style="font-family: monospace;">Unknown</span></p>
+                        <button class="btn-primary w-full mb-10" style="border-color: #4caf50; color: #4caf50; font-weight: bold;" onclick="manualSaveToCloud()">☁️ Force Save</button>
+                        <button class="btn-dashed w-full" style="border-color: var(--magic-blue); color: var(--magic-blue);" onclick="manualLoadFromCloud()">📥 Force Fetch</button>
+                    </div>
+
+                    <button id="btn-logout" class="btn-dashed w-full hidden mt-10" onclick="handleLogout()">Leave Guild (Logout)</button>
                 </div>
             </div>
         </main>
